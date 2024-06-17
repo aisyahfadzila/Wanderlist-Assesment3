@@ -4,7 +4,6 @@ data class ImagePostResponse(
     val success: Boolean
 )
 
-
 data class ImageData(
     val id: String,
     val link: String,

@@ -8,12 +8,13 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.d3if3044.wanderlist.network.ApiStatus
 import org.d3if3044.wanderlist.network.Api
-import org.d3if3044.wanderlist.network.ImageApi
 import org.d3if3044.wanderlist.model.Destinasi
 import org.d3if3044.wanderlist.model.DestinasiCreate
 import org.d3if3044.wanderlist.model.ImageData
@@ -34,6 +35,9 @@ class MainViewModel : ViewModel() {
         private set
 
     var querySuccess = mutableStateOf(false)
+        private set
+
+    var isUploading = mutableStateOf(false)
         private set
 
 
@@ -57,32 +61,32 @@ class MainViewModel : ViewModel() {
 
     fun saveData(
         email: String,
-        tujuan: String,
+        destinasi: String,
         kendaraan: String,
         deskripsi: String,
         bitmap: Bitmap
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val upload = ImageApi.imgService.uploadImg(
-                    image = bitmap.toMultipartBody()
-                )
-
-                if (upload.success) {
-                    Api.userService.addData(
-                        DestinasiCreate(
-                            email,
-                            tujuan,
-                            kendaraan,
-                            deskripsi,
-                            transformImageData(upload.data),
-                            upload.data.deletehash!!
+                val destinasiPart = RequestBody.create("text/plain".toMediaTypeOrNull(), destinasi)
+                val kendaraanPart = RequestBody.create("text/plain".toMediaTypeOrNull(), kendaraan)
+                val deskripsiPart = RequestBody.create("text/plain".toMediaTypeOrNull(), deskripsi)
+                val userEmailPart = RequestBody.create("text/plain".toMediaTypeOrNull(), email)
+                        isUploading.value = true
+                val result =
+                    withTimeout(20000L) {
+                        Api.userService.addData(
+                            destinasiPart,
+                            kendaraanPart,
+                            deskripsiPart,
+                            userEmailPart,
+                            bitmap.toMultipartBody()
                         )
-                    )
-                    status.value = ApiStatus.LOADING
-                    retrieveData(email)
-                    querySuccess.value = true
-                }
+                    }
+                        isUploading.value = false
+                Log.d("MainVM", "result: $result")
+                querySuccess.value = true
+                retrieveData(email)
             } catch (e: Exception) {
                 Log.d("MainVM", "save error: ${e.message}")
                 errorMessage.value = when (e.message) {
@@ -93,22 +97,18 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun deleteData(email: String, id: Int, deleteHash: String) {
+
+    fun deleteData(email: String, id: Int) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val upload = ImageApi.imgService.deleteImg(
-                    deleteHash = deleteHash
-                )
-                if (upload.success) {
-                    Api.userService.deleteData(id, email)
-                    querySuccess.value = true
-                    retrieveData(email)
-                }
+                Api.userService.deleteData(id, email)
+                querySuccess.value = true
+                retrieveData(email)
             } catch (e: Exception) {
                 Log.d("MainVM", "delete error: ${e.message}")
                 errorMessage.value = when (e.message) {
                     "HTTP 500 " -> "Database idle, harap inputkan kembali data."
-                    else -> "Terjadi kesalahan, harap coba lagi"
+                    else -> "Request timeout atau terjadi kesalahan, harap coba lagi.   "
                 }
             }
         }
@@ -116,12 +116,12 @@ class MainViewModel : ViewModel() {
 
     private fun Bitmap.toMultipartBody(): MultipartBody.Part {
         val stream = ByteArrayOutputStream()
-        compress(Bitmap.CompressFormat.JPEG, 80, stream)
+        compress(Bitmap.CompressFormat.JPEG, 30, stream)
         val byteArray = stream.toByteArray()
         val requestBody = byteArray.toRequestBody(
             "image/jpg".toMediaTypeOrNull(), 0, byteArray.size
         )
-        return MultipartBody.Part.createFormData("image", "image.jpg", requestBody)
+        return MultipartBody.Part.createFormData("file", "image.jpg", requestBody)
     }
 
     fun transformImageData(imageData: ImageData): String {
@@ -137,6 +137,7 @@ class MainViewModel : ViewModel() {
     fun clearMessage() {
         errorMessage.value = null
         querySuccess.value = false
+        isUploading.value = false
     }
 
 }

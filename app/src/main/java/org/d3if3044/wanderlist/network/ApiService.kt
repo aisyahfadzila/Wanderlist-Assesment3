@@ -2,15 +2,17 @@ package org.d3if3044.wanderlist.network
 
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import org.d3if3044.wanderlist.model.MessageResponse
-import org.d3if3044.wanderlist.model.DestinasiCreate
 import org.d3if3044.wanderlist.model.Destinasi
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
-import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -30,19 +32,23 @@ private val retrofit = Retrofit.Builder()
 
 
 interface UserApi {
+    @Multipart
     @POST("destinasi/")
     suspend fun addData(
-        @Body data: DestinasiCreate
-    ): MessageResponse
-
+        @Part("destinasi") destinasi: RequestBody,
+        @Part("kendaraan") kendaraan: RequestBody,
+        @Part("deskripsi") deskripsi: RequestBody,
+        @Part("user_email") userEmail: RequestBody,
+        @Part file: MultipartBody.Part
+    ): Destinasi
     @GET("destinasi/")
     suspend fun getAllData(
         @Query("email") email: String,
     ): List<Destinasi>
 
-    @DELETE("destinasi/{destinasi_id}")
+    @DELETE("destinasi/{destination_id}")
     suspend fun deleteData(
-        @Path("destinasi_id") id: Int,
+        @Path("destination_id") id: Int,
         @Query("email") email: String
     ): MessageResponse
 }
@@ -53,6 +59,9 @@ object Api {
         retrofit.create(UserApi::class.java)
     }
 
+    fun getImageUrl(imageId: String): String{
+        return BASE_URL + "destinasi/images/$imageId"
+    }
 }
 
 enum class ApiStatus { LOADING, SUCCESS, FAILED }

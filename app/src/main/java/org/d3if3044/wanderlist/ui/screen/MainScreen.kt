@@ -19,10 +19,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
@@ -31,6 +34,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,6 +61,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -88,8 +93,8 @@ import org.d3if3044.wanderlist.network.UserDataStore
 import org.d3if3044.wanderlist.ui.theme.WanderlistTheme
 import org.d3if3044.wanderlist.model.Destinasi
 import org.d3if3044.wanderlist.model.User
+import org.d3if3044.wanderlist.network.Api
 import org.d3if3044.wanderlist.network.ApiStatus
-import org.d3if3044.wanderlist.network.ImageApi
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,11 +114,18 @@ fun MainScreen(navController: NavHostController) {
         if (bitmap != null) showImgDialog = true
     }
 
+    val isUploading by viewModel.isUploading
     val isSuccess by viewModel.querySuccess
 
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
             Toast.makeText(context, "Berhasil!", Toast.LENGTH_SHORT).show()
+            viewModel.clearMessage()
+        }
+    }
+    LaunchedEffect(isUploading) {
+        if (isUploading) {
+            Toast.makeText(context, "Sedang mengupload...", Toast.LENGTH_LONG).show()
             viewModel.clearMessage()
         }
     }
@@ -137,12 +149,12 @@ fun MainScreen(navController: NavHostController) {
                     }) {
                         Icon(
                             painter = painterResource(
-                                if (showList) R.drawable.baseline_grid_view_24
+                                if (!showList) R.drawable.baseline_grid_view_24
                                 else R.drawable.baseline_view_list_24
                             ),
                             contentDescription = stringResource(
-                                if (showList) R.string.grid
-                                else R.string.list
+                                if (showList) R.string.list
+                                else R.string.grid
                             ),
                             tint = MaterialTheme.colorScheme.primary
                         )
@@ -175,7 +187,8 @@ fun MainScreen(navController: NavHostController) {
                     )
                     launcher.launch(options)
                 } else {
-                    Toast.makeText(context, "Harap login terlebih dahulu!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Harap login terlebih dahulu!", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }) {
                 Icon(
@@ -204,10 +217,12 @@ fun MainScreen(navController: NavHostController) {
             }
         }
 
-        if (errorMessage != null) {
-            Log.d("MainScreen", "$errorMessage")
-            Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
-            viewModel.clearMessage()
+        LaunchedEffect(errorMessage) {
+            if (errorMessage != null) {
+                Log.d("MainScreen", "$errorMessage")
+                Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                viewModel.clearMessage()
+            }
         }
     }
 }
@@ -220,7 +235,11 @@ fun ScreenContent(modifier: Modifier, viewModel: MainViewModel, user: User, show
     var wanderlist by remember { mutableStateOf<Destinasi?>(null) }
     val retrieveErrorMessage by viewModel.errorMessageNoToast
 
-    LaunchedEffect(user.email) {
+    LaunchedEffect(data) {
+        viewModel.retrieveData(user.email)
+    }
+
+    LaunchedEffect(user) {
         viewModel.retrieveData(user.email)
     }
 
@@ -266,9 +285,15 @@ fun ScreenContent(modifier: Modifier, viewModel: MainViewModel, user: User, show
                     HapusDialog(
                         wanderlist = wanderlist!!,
                         onDismissRequest = { showDeleteDialog = false }) {
-                        viewModel.deleteData(user.email, wanderlist!!.id, wanderlist!!.delete_hash)
+                        viewModel.deleteData(user.email, wanderlist!!.id)
                         showDeleteDialog = false
                     }
+                }
+            }
+            if (showDeleteDialog) {
+                HapusDialog(wanderlist!!, onDismissRequest = { showDeleteDialog = false }) {
+                    viewModel.deleteData(user.email, wanderlist!!.id)
+                    showDeleteDialog = false
                 }
             }
         }
@@ -286,10 +311,15 @@ fun ScreenContent(modifier: Modifier, viewModel: MainViewModel, user: User, show
                         when (retrieveErrorMessage) {
                             "Anda belum memasukkan data." -> {
                                 Image(
-                                    painter = painterResource(id = R.drawable.empty_state),
+                                    painter = painterResource(id = R.drawable.cancel_9462411),
                                     contentDescription = "Empty Data Image"
                                 )
-                                Text(text = retrieveErrorMessage!!)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(id = R.string.list_kosong),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
                             }
 
                             else -> {
@@ -317,23 +347,24 @@ fun ScreenContent(modifier: Modifier, viewModel: MainViewModel, user: User, show
 @Composable
 fun ListItem(notes: Destinasi, onClick: () -> Unit) {
     Card(
+        onClick = {},
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
-            .clickable { onClick() },
+            .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceBright,
         ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceBright)
     ) {
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(modifier = Modifier.width(8.dp))
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(ImageApi.getImageUrl(notes.image_id))
+                    .data(Api.getImageUrl(notes.imageId))
                     .crossfade(true)
                     .build(),
                 contentDescription = stringResource(
-                    id = R.string.gambar, notes.image_id
+                    id = R.string.gambar, notes.imageId
                 ),
                 contentScale = ContentScale.Crop,
                 placeholder = painterResource(id = R.drawable.loading_img),
@@ -346,7 +377,6 @@ fun ListItem(notes: Destinasi, onClick: () -> Unit) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onClick() }
                     .padding(16.dp)
                     .background(MaterialTheme.colorScheme.surfaceBright),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -356,6 +386,7 @@ fun ListItem(notes: Destinasi, onClick: () -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
+                        modifier = Modifier.width(125.dp),
                         text = notes.destinasi,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -363,13 +394,21 @@ fun ListItem(notes: Destinasi, onClick: () -> Unit) {
                     )
                     Text(text = notes.kendaraan)
                 }
-
-                Text(
-                    text = notes.deskripsi,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.displaySmall
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        modifier = Modifier.width(175.dp),
+                        text = notes.deskripsi,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.displaySmall
+                    )
+                    IconButton(onClick = { onClick() }) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete Icon")
+                    }
+                }
             }
         }
     }
@@ -378,10 +417,10 @@ fun ListItem(notes: Destinasi, onClick: () -> Unit) {
 @Composable
 fun GridItem(notes: Destinasi, onClick: () -> Unit) {
     Card(
+        onClick = {},
         modifier = Modifier
             .padding(4.dp)
-            .fillMaxWidth()
-            .clickable { onClick() },
+            .fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceBright,
         ),
@@ -389,11 +428,11 @@ fun GridItem(notes: Destinasi, onClick: () -> Unit) {
     ) {
         AsyncImage(
             model = ImageRequest.Builder(LocalContext.current)
-                .data(ImageApi.getImageUrl(notes.image_id))
+                .data(Api.getImageUrl(notes.imageId))
                 .crossfade(true)
                 .build(),
             contentDescription = stringResource(
-                id = R.string.gambar, notes.image_id
+                id = R.string.gambar, notes.imageId
             ),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(id = R.drawable.loading_img),
@@ -407,13 +446,23 @@ fun GridItem(notes: Destinasi, onClick: () -> Unit) {
             modifier = Modifier.padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+
             Text(
                 text = notes.destinasi,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.displayMedium
             )
-            Text(text = notes.kendaraan)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = notes.kendaraan)
+                IconButton(onClick = { onClick() }) {
+                    Icon(imageVector = Icons.Filled.Delete, contentDescription = "Delete Icon")
+                }
+            }
             Text(
                 text = notes.deskripsi,
                 maxLines = 2,

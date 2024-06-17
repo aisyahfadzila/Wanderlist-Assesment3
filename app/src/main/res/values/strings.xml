@@ -1,0 +1,32 @@
+<resources>
+    <string name="app_name">Wanderlist</string>
+    <string name="list_kosong">Belum ada destinasi \nyang ditambahkan</string>
+    <string name="empty_state_image">Gambar belum ada destinasi</string>
+    <string name="tambah_destinasi">Tambah destinasi wisata</string>
+    <string name="kembali">Kembali</string>
+    <string name="simpan">Simpan</string>
+    <string name="edit_tujuan_wisata">Ubah Tujuan Wisata</string>
+    <string name="tujuan">Tujuan Wisata</string>
+    <string name="catatan">Catatan Perjalanan</string>
+    <string name="transportasi">Moda Transportasi</string>
+    <string name="transport1">Mobil</string>
+    <string name="transport2">Kereta</string>
+    <string name="transport3">Kapal</string>
+    <string name="transport4">Pesawat</string>
+    <string name="invalid">Tujuan, kendaraan, dan catatan tidak boleh kosong.</string>
+    <string name="lainnya">Opsi lainnya</string>
+    <string name="hapus">Hapus destinasi wisata</string>
+    <string name="pesan_hapus">Hapus destinasi wisata ini?</string>
+    <string name="tombol_hapus">Hapus</string>
+    <string name="tombol_batal">Batal</string>
+    <string name="list">Tampilan List</string>
+    <string name="grid">Tampilan Grid</string>
+    <string name="gambar">Gambar %1$s</string>
+    <string name="error">Data kosong atau gagal memuat data.</string>
+    <string name="try_again">Coba lagi</string>
+    <string name="profil">Profil</string>
+    <string name="tutup">Tutup</string>
+    <string name="logout">logout</string>
+    <string name="tambah_foto">Tambah Foto</string>
+    <string name="batal">Batal</string>
+</resources>
